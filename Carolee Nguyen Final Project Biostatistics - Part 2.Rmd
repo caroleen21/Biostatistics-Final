@@ -1,0 +1,277 @@
+---
+title: "RNAseqHW"
+author: "Carolee Nguyen"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error=TRUE)
+```
+
+For dataset 2
+1) Build hierarchical trees based on the columns and for the rows (exclude rows
+that are "low" expression)
+2) Draw a heat map of the expression data
+3) Use DESeq2 to analyse this data
+   a) which are the most significantly changing genes in this dataset ?
+   b) which genes are most consistently highly expressed in these datasets
+       they are the "house-keeping" genes
+   c) How consistent are these results with the analysis you did
+      in the midterm project ? 
+   d) What else can you say about the data in terms of consistency,
+   and the results that you find from your analyses. The question is open-ended,
+   think of this as your experiment, you need to write a paper based on this data
+   so you have to figure out what kind of "story" you can tell based on this.
+   
+   e) what is the most interesting pathway or gene that is responding in this study ?
+
+
+```{r readdata}
+
+countdata = read.csv(file = "/Users/carol/Downloads/Mnemiopsis_count_data.csv", header=TRUE) #Read data file as a variable
+countdata = as.data.frame(countdata) #Read data file as a data frame
+
+print(grep("aboral", countdata)) #Use grep function to extract all cases of "aboral" 
+print(grep("oral", countdata)) #Use grep function to extract all cases of "oral" 
+
+dfaboral <- countdata[,c(2,3,4,5)] #Create a dataframe for aboral
+dforal <- countdata[,c(6,7,8,9)] #Create a dataframe for oral
+
+
+
+dfcounts <- countdata[,-1]
+rownames(dfcounts) <- countdata[,1]
+
+
+print(dfcounts)
+```
+
+
+### Step 2 
+
+
+```{r createfactor}
+
+
+
+expgroup <- data.frame(condition=1:8) #Create a dataframe with 8 values corresponding to the columns in readcount
+expgroup$condition[c(1:4)] <- 'Aboral' #Assign the first 20 values as healthy using grep information
+expgroup$condition[c(5:8)] <- 'Oral' #Assign the last 20 values as CF using grep information
+
+  
+rownames(expgroup) <- colnames(countdata[,c(2:9)]) #Use the column names of read count as the row names of expgroup
+
+print(expgroup) #Print the expgroup dataframe
+```
+
+### Step 3
+
+```{r runDESeq2} 
+
+library("DESeq2") #Load DeSeq2 library
+cds <- DESeqDataSetFromMatrix(countData = dfcounts, #Create a count data set matrix named "cds" using readcount as countData
+                              colData = expgroup, #Set colData as expgroup
+                              design = ~ condition) #Set design as condition
+cds #Call the matrix
+
+```
+
+### Step 4
+
+
+```{r estimate}
+
+#Utilize the previous count data set matrix in the functions below:
+cds <- estimateSizeFactors(cds) #Function for estimating size factors
+cds <- estimateDispersions(cds) #Function for estimating dispersion
+plotDispEsts(cds) #Function for plotting dispersion
+
+
+
+
+```
+
+### Step 5 
+
+```{r deseqres}
+
+#Utilize the previous count data set matrix in the functions below:
+cds <- DESeq(cds) #perform differential gene expression
+res <- results(cds) #use results function to obtain differential gene expression results
+res #Output DeSeq2 results
+
+
+```
+
+### Step 6 
+
+
+
+```{r diffexp}
+#Look for genes that have an adjust p-value <0.05 and greater than 1
+resSigind = res[ which(res$padj < 0.05 & res$log2FoldChange > 1), ] 
+#Look for genes that have an adjust p-value <0.05 and less than 1
+resSigrep = res[ which(res$padj < 0.05 & res$log2FoldChange < -1), ]
+#Combine the two previous results together
+diffexpgenes = rbind(resSigind, resSigrep)
+#Print the row names, which is the list of differentially expressed genes
+rownames(diffexpgenes)
+
+nrow(diffexpgenes)
+```
+
+
+### Step 7 
+
+
+
+```{r normvalues}
+#Utilize the previous count data set matrix in the functions below:
+normvalues = counts(cds, normalized=TRUE)
+print(normvalues) #print the normalized values
+
+colnames(normvalues) #Show column names for matching in the step below
+```
+
+### Step 8
+
+
+```{r diffvalues}
+
+###match(rownames(diffexpgenes), rownames(normvalues))
+diffexpvalues = normvalues[rownames(normvalues) %in% rownames(diffexpgenes), ]
+#Print the dataframe
+print(diffexpvalues)
+#Print the dimension of the dataframe to see if it matches the list of differentially expressed genes from previous step
+print(dim(diffexpvalues))
+
+
+aboral1 = sort(diffexpvalues[,1])
+tail(aboral1)
+#ML174735a ML034334a ML034337a ML034336a  ML01482a  ML46651a 
+#17157.06  21911.36  22424.14  23631.30  30581.63 118211.07 
+ 
+aboral2 = sort(diffexpvalues[,2])
+tail(aboral2)
+#ML174735a ML034337a ML034336a ML034334a  ML01482a  ML46651a 
+#40418.84  58540.29  65914.50  68219.38  80559.11  93870.29
+
+aboral3 = sort(diffexpvalues[,3])
+tail(aboral3)
+#ML174735a ML034337a ML034336a ML034334a  ML46651a  ML01482a 
+#27488.06  47004.61  50998.50  55714.11  56425.56  71249.61 
+
+aboral4 = sort(diffexpvalues[,4])
+tail(aboral4)
+#ML174735a ML034337a ML034336a  ML46651a ML034334a  ML01482a 
+#37089.43  67521.80  82850.63  91834.25  92639.95 110042.52 
+ 
+oral1 = sort(diffexpvalues[,5])
+tail(oral1)
+#ML01433a ML087114a ML199832a ML004510a  ML21583a ML306119a 
+#14912.24  17974.26  18039.35  22064.90  23649.09  31192.30 
+
+oral2 = sort(diffexpvalues[,6])
+tail(oral2)
+#ML11032a ML306119a  ML34341a ML087114a ML199832a ML004510a 
+#16119.59  16538.89  18610.45  20852.11  21035.21  34514.43 
+
+oral3 = sort(diffexpvalues[,7])
+tail(oral3)
+#ML46651a  ML43587a  ML11032a ML087114a  ML01482a ML004510a 
+#27853.26  29726.57  30124.16  42894.61  44780.12  66495.13 
+
+oral4 = sort(diffexpvalues[,8])
+tail(oral4)
+#ML01433a  ML11032a  ML09436a ML087114a  ML46651a ML004510a 
+#26045.23  28540.28  33828.03  39617.47  64936.93  77464.55 
+```
+
+### Step 9 
+
+
+```{r diffgroups}
+
+
+#Create a hierarchical cluster 
+
+hc <- hclust(dist(diffexpgenes), method = "complete")
+
+plot = plot(hc, main = "Dendrogram", horiz = TRUE, cex = 0.5)
+
+print(plot)
+
+
+ 
+
+```
+
+
+### Step 10 
+
+```{r heatmap}
+
+#Load the pheatmap package
+library(pheatmap)
+
+#Plot the heatmap using designated variables
+pheatmap(diffexpvalues, 
+         color = colorRampPalette(c("navy", "white", "firebrick3"))(50),
+         scale = "row", 
+         cluster_rows = TRUE,
+         cellwidth = 5, 
+         cellheight = 3, 
+         fontsize = 5,
+         width=2000,
+         height=800
+         )
+
+
+pheatmap(diffexpvalues)
+```
+
+### Step 11 
+
+
+```{r eval=F}
+#Install all Bioconductor packages
+BiocManager::install("GOstats")
+BiocManager::install("GO.db")
+BiocManager::install("Category")
+BiocManager::install("org.Hs.eg.db")
+
+
+```
+
+
+```{r loadlibraries}
+#Load all libraries 
+
+library(GOstats)
+library(GO.db)
+library(Category)
+library(org.Hs.eg.db)
+
+```
+
+
+
+```{r gostats}
+#Create a GOHyperParams object using varaibles created from the previous steps
+params=new("GOHyperGParams", 
+  geneIds=rownames(diffexpgenes), 
+  universeGeneIds=rownames(readcount), 
+  annotation="org.Hs.eg", 
+  ontology="BP", 
+  pvalueCutoff=0.001, 
+  conditional=TRUE, 
+  testDirection="over")
+
+#Run HyperFTest
+(overRepresented=hyperGTest(params))
+#Print out summary of desired columns
+summary(overRepresented)[,c(1,2,5,6,7)]
+
+```
+
+
